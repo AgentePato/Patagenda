@@ -83,6 +83,15 @@ export function createStore(backend) {
       () => backend.setAvailability(profileId, date, slot, available),
     ),
 
+    // Quita todas las franjas marcadas por esa persona este mes.
+    clearAvailability: (profileId) => {
+      const mine = (state?.availability ?? []).filter((a) => a.profile_id === profileId);
+      return mutate(
+        (s) => { s.availability = s.availability.filter((a) => a.profile_id !== profileId); },
+        () => Promise.all(mine.map((a) => backend.setAvailability(profileId, a.slot_date, a.slot, false))),
+      );
+    },
+
     rateActivity: (profileId, activityId, score) => mutate(
       (s) => {
         s.activity_ratings = replace(s.activity_ratings,

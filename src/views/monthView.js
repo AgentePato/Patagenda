@@ -5,7 +5,7 @@ import {
 import { activityScores, availabilityStats, bestSlots, formatScore, topActivities } from '../logic/polls.js';
 import { h, cx } from '../ui/dom.js';
 import { avatar, avatarStack, card, namesList, pill, plural } from '../ui/components.js';
-import { attempt } from '../ui/feedback.js';
+import { attempt, confirmDialog, toast } from '../ui/feedback.js';
 import { editToggle, openAddOption, optionTools } from './optionEditor.js';
 import { renderFinalPlan } from './finalPlan.js';
 import { eventCard } from './eventCard.js';
@@ -47,7 +47,7 @@ function slotButton(stat, ctx, profileCount, isBest) {
 }
 
 function availabilityCard(ctx) {
-  const { state, me } = ctx;
+  const { state, me, store } = ctx;
   const profileCount = state.profiles.length;
   const stats = availabilityStats(monthSlots(state.month_start, SLOTS), state.availability, profileCount);
   const byKey = new Map(stats.map((s) => [s.key, s]));
@@ -63,9 +63,20 @@ function availabilityCard(ctx) {
       subtitle: 'Marca todas las franjas en las que puedes. Toca otra vez para desmarcar.',
     },
     bestBox(best, profileCount),
-    h('p', { class: 'hint hint--top' }, mineCount
-      ? `Has marcado ${plural(mineCount, 'franja', 'franjas')} este mes.`
-      : 'Todavía no has marcado ninguna franja.'),
+    h('div', { class: 'mine-row' },
+      h('p', { class: 'hint hint--top' }, mineCount
+        ? `Has marcado ${plural(mineCount, 'franja', 'franjas')} este mes.`
+        : 'Todavía no has marcado ninguna franja.'),
+      mineCount > 0 && h('button', {
+        type: 'button',
+        class: 'btn btn--ghost btn--small',
+        onClick: () => confirmDialog({
+          title: '¿Limpiar tu elección?',
+          message: `Se desmarcarán tus ${plural(mineCount, 'franja', 'franjas')} de este mes. Lo que han marcado las demás no se toca.`,
+          confirmText: 'Limpiar',
+          onConfirm: async () => { await store.clearAvailability(me.id); toast('Elección limpiada'); },
+        }),
+      }, '🧹 Limpiar elección')),
     weeks.map((week, i) => h('div', { class: 'week' },
       h('h4', { class: 'week__title' }, `Semana ${i + 1}`, h('span', { class: 'week__range' }, formatDaysRange(week.days))),
       week.days.map((day) => h('div', { class: cx('day', day < state.today && 'is-past') },
