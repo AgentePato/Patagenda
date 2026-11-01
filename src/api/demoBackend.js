@@ -87,11 +87,12 @@ export function createDemoBackend() {
       };
     },
 
-    async voteDinnerDay(profileId, day) {
+    async voteDinnerDay(profileId, day, on) {
       const { week } = periods();
       commit((d) => {
-        d.dinner_day_votes = upsert(d.dinner_day_votes, (v) => v.period === week && v.profile_id === profileId,
-          day && { period: week, profile_id: profileId, day });
+        d.dinner_day_votes = upsert(d.dinner_day_votes,
+          (v) => v.period === week && v.profile_id === profileId && v.day === day,
+          on && { period: week, profile_id: profileId, day });
       });
     },
 

@@ -1,6 +1,6 @@
 // Todos los backends exponen la misma interfaz:
 //   getState()
-//   voteDinnerDay(profileId, day | null)
+//   voteDinnerDay(profileId, day, on)
 //   voteRestaurant(profileId, restaurantId | null)
 //   setAvailability(profileId, date, slot, available)
 //   rateActivity(profileId, activityId, score | null)

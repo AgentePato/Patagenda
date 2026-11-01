@@ -58,9 +58,12 @@ export function createStore(backend) {
     refresh,
     scheduleRefresh,
 
-    voteDinnerDay: (profileId, day) => mutate(
-      (s) => { s.dinner_day_votes = replace(s.dinner_day_votes, (v) => v.profile_id === profileId, day && { profile_id: profileId, day }); },
-      () => backend.voteDinnerDay(profileId, day),
+    voteDinnerDay: (profileId, day, on) => mutate(
+      (s) => {
+        s.dinner_day_votes = replace(s.dinner_day_votes, (v) => v.profile_id === profileId && v.day === day,
+          on && { profile_id: profileId, day });
+      },
+      () => backend.voteDinnerDay(profileId, day, on),
     ),
 
     voteRestaurant: (profileId, restaurantId) => mutate(

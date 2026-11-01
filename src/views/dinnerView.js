@@ -25,18 +25,18 @@ export const placeTally = (state) =>
 
 function whenCard(ctx, tally) {
   const { state, me, store, profilesById } = ctx;
-  const mine = state.dinner_day_votes.find((v) => v.profile_id === me.id)?.day ?? null;
+  const mine = new Set(state.dinner_day_votes.filter((v) => v.profile_id === me.id).map((v) => v.day));
 
   return card(
     { title: '¿Cuándo cenamos?', emoji: '🗓', subtitle: leaderSummary(tally, (r) => r.label) },
     h('div', { class: 'day-grid' }, tally.rows.map((row) => {
-      const selected = mine === row.id;
+      const selected = mine.has(row.id);
       const leading = tally.leaders.includes(row.id);
       return h('button', {
         type: 'button',
         class: cx('day-option', selected && 'is-selected', leading && 'is-leading'),
         'aria-pressed': String(selected),
-        onClick: () => attempt(() => store.voteDinnerDay(me.id, selected ? null : row.id)),
+        onClick: () => attempt(() => store.voteDinnerDay(me.id, row.id, !selected)),
       },
       leading && h('span', { class: 'crown', 'aria-hidden': 'true' }, '👑'),
       h('span', { class: 'day-option__emoji', 'aria-hidden': 'true' }, row.emoji),
@@ -45,7 +45,9 @@ function whenCard(ctx, tally) {
       progressBar(row.pct),
       h('span', { class: 'day-option__voters' }, avatarStack(row.voters, profilesById, { max: 6 }) ?? h('span', { class: 'muted' }, '—')));
     })),
-    h('p', { class: 'hint' }, mine ? 'Toca otra vez tu opción para quitar el voto.' : 'Toca un día para votar.'),
+    h('p', { class: 'hint' }, mine.size
+      ? 'Si puedes los dos días, marca los dos. Toca otra vez un día para quitarlo.'
+      : 'Toca los días que puedes (uno o los dos).'),
   );
 }
 

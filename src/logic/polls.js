@@ -9,22 +9,24 @@ export const percent = (part, total) => (total > 0 ? Math.round((part / total) *
 export const formatScore = (n) => String(Math.round(n * 100) / 100).replace('.', ',');
 
 /**
- * Recuento de una encuesta de opción única.
+ * Recuento de una encuesta. Cada persona puede votar una o varias opciones;
+ * el porcentaje de cada opción es sobre las personas que han votado.
  * @param options [{ id, ... }]
  * @param votes   [{ profile_id, choice }]
- * @returns { rows: [{ ...option, count, pct, voters }], total, leaders: [id] }
+ * @returns { rows: [{ ...option, count, pct, voters }], total (personas), leaders: [id] }
  */
 export function tallyChoices(options, votes) {
   const rows = options.map((o) => ({ ...o, count: 0, pct: 0, voters: [] }));
   const byId = new Map(rows.map((r) => [r.id, r]));
-  let total = 0;
+  const people = new Set();
   for (const v of votes) {
     const row = byId.get(v.choice);
     if (!row) continue;
     row.voters.push(v.profile_id);
     row.count += 1;
-    total += 1;
+    people.add(v.profile_id);
   }
+  const total = people.size;
   rows.forEach((r) => { r.pct = percent(r.count, total); });
   const max = Math.max(0, ...rows.map((r) => r.count));
   const leaders = max > 0 ? rows.filter((r) => r.count === max).map((r) => r.id) : [];

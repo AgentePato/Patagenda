@@ -3,32 +3,33 @@
    ===================================================================== */
 
 :root {
-  --bg: #fff6f2;
-  --bg-glow-1: #ffe1ea;
-  --bg-glow-2: #ece4ff;
+  --bg: #f5f5f3;
+  --bg-glow-1: #fff1b8;
+  --bg-glow-2: #e4e6ea;
   --surface: #ffffff;
-  --surface-2: #fdf1ef;
-  --text: #3a2733;
-  --muted: #8b7381;
-  --line: #f2dfe2;
+  --surface-2: #f1f1ef;
+  --text: #2b2d31;
+  --muted: #6e7279;
+  --line: #e2e3e5;
 
-  --primary: #e5608e;
-  --primary-strong: #cc4677;
-  --primary-soft: #fde2ec;
-  --accent: #8f72de;
-  --accent-soft: #efe8ff;
+  --primary: #f5c518;
+  --primary-strong: #8a6500;
+  --primary-soft: #fff4c7;
+  --on-primary: #2b2d31;
+  --accent: #6b7280;
+  --accent-soft: #eceef1;
   --mint: #3fae8e;
   --mint-soft: #ddf4ec;
-  --gold: #e9a92c;
-  --gold-soft: #fff1d3;
+  --gold: #e8901c;
+  --gold-soft: #ffead0;
   --danger: #d6455d;
   --danger-soft: #fde4e8;
 
   --radius-lg: 24px;
   --radius: 16px;
   --radius-sm: 12px;
-  --shadow: 0 1px 2px rgba(122, 61, 88, .06), 0 8px 24px -10px rgba(122, 61, 88, .18);
-  --shadow-pop: 0 18px 40px -16px rgba(122, 61, 88, .35);
+  --shadow: 0 1px 2px rgba(40, 42, 46, .06), 0 8px 24px -10px rgba(40, 42, 46, .18);
+  --shadow-pop: 0 18px 40px -16px rgba(40, 42, 46, .35);
 
   --font-display: 'Fraunces', Georgia, serif;
   --font-body: 'DM Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -39,23 +40,24 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #1d1520;
-    --bg-glow-1: #3a1f31;
-    --bg-glow-2: #2a2242;
-    --surface: #2a1f2e;
-    --surface-2: #34273a;
-    --text: #f8eaf1;
-    --muted: #bba3b1;
-    --line: #43344a;
-    --primary: #f37ea6;
-    --primary-strong: #ff93b7;
-    --primary-soft: #4b2639;
-    --accent: #b49cff;
-    --accent-soft: #352b52;
+    --bg: #18191b;
+    --bg-glow-1: #3a3214;
+    --bg-glow-2: #2a2c30;
+    --surface: #232427;
+    --surface-2: #2d2f32;
+    --text: #f2f2ef;
+    --muted: #a6a9ae;
+    --line: #3b3d41;
+    --primary: #ffd23f;
+    --primary-strong: #ffe07a;
+    --primary-soft: #3d3518;
+    --on-primary: #232427;
+    --accent: #9aa0a8;
+    --accent-soft: #303236;
     --mint: #63d3b1;
     --mint-soft: #1f3b33;
-    --gold: #f5c25a;
-    --gold-soft: #463718;
+    --gold: #f5a83e;
+    --gold-soft: #45321a;
     --danger: #ff7c90;
     --danger-soft: #4a2229;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 26px -12px rgba(0, 0, 0, .6);
@@ -306,8 +308,8 @@ a { color: inherit; }
 .btn:active { transform: scale(.97); }
 .btn:disabled { opacity: .6; cursor: progress; }
 .btn--block { width: 100%; }
-.btn--primary { background: var(--primary); color: #fff; box-shadow: 0 8px 18px -10px var(--primary); }
-.btn--primary:hover { background: var(--primary-strong); }
+.btn--primary { background: var(--primary); color: var(--on-primary); box-shadow: 0 8px 18px -10px var(--primary); }
+.btn--primary:hover { background: color-mix(in srgb, var(--primary) 85%, var(--text)); }
 .btn--soft { background: var(--primary-soft); color: var(--primary-strong); }
 .btn--ghost { background: transparent; color: var(--muted); }
 .btn--ghost:hover { background: var(--surface-2); }
@@ -603,8 +605,8 @@ a { color: inherit; }
   width: 68px;
   height: 72px;
   border-radius: 18px;
-  background: linear-gradient(160deg, var(--primary), var(--accent));
-  color: #fff;
+  background: linear-gradient(160deg, var(--primary), var(--gold));
+  color: var(--on-primary);
   box-shadow: 0 10px 20px -10px var(--primary);
   line-height: 1;
 }
@@ -668,7 +670,7 @@ a { color: inherit; }
   align-items: end;
   justify-items: center;
   padding: 16px;
-  background: rgba(40, 20, 34, .35);
+  background: rgba(24, 25, 27, .4);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   animation: fade .2s ease both;
@@ -784,13 +786,13 @@ a { color: inherit; }
   padding: 4px 10px;
   border-radius: 999px;
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   font-size: .72rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: .06em;
 }
-.event-card--plan .event-card__badge { background: var(--accent); }
+.event-card--plan .event-card__badge { background: var(--accent); color: var(--surface); }
 .event-card__tools { display: flex; gap: 6px; }
 .event-card__title { font-size: 1.45rem; margin-top: 6px; overflow-wrap: anywhere; }
 .event-card__when { font-weight: 700; font-size: 1.05rem; }

@@ -47,12 +47,12 @@ export function placesMap(places) {
     }).addTo(map);
 
     const max = Math.max(...located.map((p) => p.count));
-    const color = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#e5608e';
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#f5c518';
     for (const p of located) {
       L.circleMarker([p.lat, p.lng], {
         radius: 7 + (max > 1 ? ((p.count - 1) / (max - 1)) * 11 : 0),
-        color: '#fff',
-        weight: 2,
+        color: '#5b5f66',
+        weight: 1.5,
         fillColor: color,
         fillOpacity: 0.85,
       })

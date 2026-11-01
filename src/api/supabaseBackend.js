@@ -26,7 +26,7 @@ export function createSupabaseBackend(url, anonKey) {
   return {
     mode: 'supabase',
     getState: () => rpc('get_state'),
-    voteDinnerDay: (profileId, day) => rpc('vote_dinner_day', { p_profile: profileId, p_day: day }),
+    voteDinnerDay: (profileId, day, on) => rpc('vote_dinner_day', { p_profile: profileId, p_day: day, p_on: on }),
     voteRestaurant: (profileId, restaurantId) =>
       rpc('vote_restaurant', { p_profile: profileId, p_restaurant: restaurantId }),
     setAvailability: (profileId, date, slot, available) =>

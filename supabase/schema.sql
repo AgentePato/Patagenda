@@ -68,14 +68,17 @@ create table if not exists public.activities (
 );
 create unique index if not exists activities_name_key on public.activities (lower(name));
 
--- Encuesta semanal 1: ¿cuándo cenamos? (un voto por persona y semana)
+-- Encuesta semanal 1: ¿cuándo cenamos? (cada persona puede marcar uno o los dos días)
 create table if not exists public.dinner_day_votes (
   week_start  date not null,
   profile_id  text not null references public.profiles (id) on delete cascade,
   day         text not null check (day in ('viernes', 'sabado')),
   updated_at  timestamptz not null default now(),
-  primary key (week_start, profile_id)
+  primary key (week_start, profile_id, day)
 );
+-- Antes era un solo día por persona: amplía la clave sin perder votos.
+alter table public.dinner_day_votes drop constraint if exists dinner_day_votes_pkey;
+alter table public.dinner_day_votes add primary key (week_start, profile_id, day);
 
 -- Encuesta semanal 2: ¿dónde cenamos? (un voto por persona y semana)
 create table if not exists public.restaurant_votes (
@@ -278,18 +281,20 @@ end $$;
 -- ---------------------------------------------------------------------
 -- Votos (p_day / p_restaurant / p_score a null = quitar el voto)
 -- ---------------------------------------------------------------------
-create or replace function public.vote_dinner_day(p_profile text, p_day text)
+drop function if exists public.vote_dinner_day(text, text);
+
+create or replace function public.vote_dinner_day(p_profile text, p_day text, p_on boolean)
 returns void language plpgsql security definer set search_path = public as $$
 begin
   perform _assert_profile(p_profile);
-  if p_day is null then
-    delete from dinner_day_votes where week_start = current_week_start() and profile_id = p_profile;
-  elsif p_day not in ('viernes', 'sabado') then
-    raise exception 'Día no válido';
-  else
+  if p_day not in ('viernes', 'sabado') then raise exception 'Día no válido'; end if;
+
+  if p_on then
     insert into dinner_day_votes (week_start, profile_id, day)
     values (current_week_start(), p_profile, p_day)
-    on conflict (week_start, profile_id) do update set day = excluded.day, updated_at = now();
+    on conflict (week_start, profile_id, day) do nothing;
+  else
+    delete from dinner_day_votes where week_start = current_week_start() and profile_id = p_profile and day = p_day;
   end if;
 end $$;
 
@@ -515,7 +520,7 @@ revoke execute on function public._assert_profile(text), public._option_table(te
 
 grant execute on function
   public.get_state(),
-  public.vote_dinner_day(text, text),
+  public.vote_dinner_day(text, text, boolean),
   public.vote_restaurant(text, uuid),
   public.set_availability(text, date, text, boolean),
   public.rate_activity(text, uuid, int),

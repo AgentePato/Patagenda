@@ -98,6 +98,16 @@ test('empate y encuesta sin votos', () => {
   eq(tallyChoices([{ id: 'a' }], []).leaders, []);
 });
 
+test('una persona puede votar varias opciones', () => {
+  const r = tallyChoices(
+    [{ id: 'viernes' }, { id: 'sabado' }],
+    [{ profile_id: 'raquel', choice: 'viernes' }, { profile_id: 'raquel', choice: 'sabado' }, { profile_id: 'marta', choice: 'sabado' }],
+  );
+  eq(r.total, 2);
+  eq(r.rows.map((x) => [x.count, x.pct]), [[1, 50], [2, 100]]);
+  eq(r.leaders, ['sabado']);
+});
+
 test('votos a opciones borradas se ignoran', () => {
   eq(tallyChoices([{ id: 'a' }], [{ profile_id: 'x', choice: 'zzz' }]).total, 0);
 });
