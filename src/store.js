@@ -4,7 +4,7 @@
 
 const EMPTY = {
   profiles: [], restaurants: [], activities: [],
-  dinner_day_votes: [], restaurant_votes: [], availability: [], activity_ratings: [],
+  dinner_day_votes: [], restaurant_votes: [], availability: [], activity_ratings: [], events: [],
 };
 
 const normalize = (data) => ({ ...EMPTY, ...data });
@@ -92,5 +92,23 @@ export function createStore(backend) {
     addOption: (kind, name) => mutate(null, () => backend.addOption(kind, name)),
     renameOption: (kind, id, name) => mutate(null, () => backend.renameOption(kind, id, name)),
     deleteOption: (kind, id) => mutate(null, () => backend.deleteOption(kind, id)),
+    addPlace: (place) => mutate(null, () => backend.addPlace(place)),
+
+    setDinner: (profileId, date, time, restaurantId) =>
+      mutate(null, () => backend.setDinner(profileId, date, time, restaurantId)),
+    setPlanEvent: (profileId, date, slot, activityId) =>
+      mutate(null, () => backend.setPlanEvent(profileId, date, slot, activityId)),
+    deleteEvent: (id) => mutate((s) => { s.events = s.events.filter((e) => e.id !== id); }, () => backend.deleteEvent(id)),
+
+    setAttendance: (profileId, eventId, going) => mutate(
+      (s) => {
+        const event = s.events.find((e) => e.id === eventId);
+        if (event) {
+          event.attendance = replace(event.attendance, (a) => a.profile_id === profileId,
+            going != null && { profile_id: profileId, going });
+        }
+      },
+      () => backend.setAttendance(profileId, eventId, going),
+    ),
   };
 }

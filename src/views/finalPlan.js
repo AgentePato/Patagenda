@@ -3,20 +3,25 @@ import { formatLongDate, monthSlots, weekdayName, weekdayShort } from '../logic/
 import { computeFinalPlan, formatScore } from '../logic/polls.js';
 import { h } from '../ui/dom.js';
 import { avatarStack, namesList } from '../ui/components.js';
+import { attempt, toast } from '../ui/feedback.js';
 
 const fact = (label, value, extra) =>
   h('div', { class: 'fact' }, h('dt', {}, label), h('dd', {}, h('span', { class: 'fact__value' }, value), extra));
 
+// Quién ha votado ya y a quién le falta, en dos líneas.
 function participation(ctx) {
-  const { state } = ctx;
-  return h('ul', { class: 'participation' }, state.profiles.map((p) => {
-    const marked = state.availability.some((a) => a.profile_id === p.id);
-    const rated = state.activity_ratings.some((r) => r.profile_id === p.id);
+  const { state, profilesById } = ctx;
+  const row = (label, doneIds) => {
+    const missing = state.profiles.map((p) => p.id).filter((id) => !doneIds.has(id));
     return h('li', {},
-      h('span', { class: 'participation__name' }, p.name),
-      h('span', { class: marked ? 'ok' : 'todo' }, marked ? '✓ disponibilidad' : '· disponibilidad'),
-      h('span', { class: rated ? 'ok' : 'todo' }, rated ? '✓ planes' : '· planes'));
-  }));
+      h('span', { class: 'participation__name' }, `${label}: ${doneIds.size}/${state.profiles.length}`),
+      missing.length
+        ? h('span', { class: 'participation__missing' }, 'Faltan ', avatarStack(missing, profilesById, { size: 'xs', max: 7 }))
+        : h('span', { class: 'ok' }, '✓ Todas'));
+  };
+  return h('ul', { class: 'participation' },
+    row('📅 Disponibilidad', new Set(state.availability.map((a) => a.profile_id))),
+    row('⭐ Puntuaciones', new Set(state.activity_ratings.map((r) => r.profile_id))));
 }
 
 function activityFacts(candidate, profilesById) {
@@ -35,7 +40,26 @@ function activityFacts(candidate, profilesById) {
   ];
 }
 
-function candidateBlock(candidate, ctx) {
+// Botones para guardar este resultado como el plan del mes (uno por actividad si hay empate).
+function fixButtons(candidate, ctx, planEvent) {
+  const { me, store } = ctx;
+  const { slot, winners } = candidate;
+  return h('div', { class: 'plan__fix' }, winners.map((w) => {
+    const isFixed = planEvent && planEvent.event_date === slot.date && planEvent.slot === slot.slot && planEvent.title === w.name;
+    return h('button', {
+      type: 'button',
+      class: isFixed ? 'btn btn--soft' : 'btn btn--primary',
+      disabled: isFixed,
+      onClick: () => attempt(async () => {
+        await store.setPlanEvent(me.id, slot.date, slot.slot, w.id);
+        toast('¡Plan fijado! Ya podéis decir si vais 🎉', 'success');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }),
+    }, isFixed ? '📌 Es el plan fijado' : winners.length > 1 ? `📌 Fijar con ${w.name}` : '📌 Fijar este plan');
+  }));
+}
+
+function candidateBlock(candidate, ctx, planEvent) {
   const { state, profilesById } = ctx;
   const { slot, attendees, scores } = candidate;
   const meta = SLOTS.find((s) => s.id === slot.slot);
@@ -51,8 +75,9 @@ function candidateBlock(candidate, ctx) {
         h('p', { class: 'plan__slot' }, `${meta.emoji} Por la ${meta.label.toLowerCase()}`))),
     h('dl', { class: 'plan__facts' },
       fact('Pueden asistir', `${attendees.length} de ${state.profiles.length}`,
-        h('span', { class: 'fact__extra fact__people' }, avatarStack(attendees, profilesById), namesList(attendees, profilesById))),
+        h('span', { class: 'fact__extra fact__people' }, avatarStack(attendees, profilesById, { size: 'xs', max: 8 }), namesList(attendees, profilesById))),
       activityFacts(candidate, profilesById)),
+    candidate.winners.length > 0 && fixButtons(candidate, ctx, planEvent),
     h('details', {
       class: 'plan__details',
       open: ctx.ui.openDetails.has(slot.key),
@@ -66,7 +91,7 @@ function candidateBlock(candidate, ctx) {
         h('span', { class: 'ranking__score' }, s.count ? `★ ${formatScore(s.avg)} (${s.sum}/${s.count})` : 'sin votos'))))));
 }
 
-export function renderFinalPlan(ctx) {
+export function renderFinalPlan(ctx, planEvent = null) {
   const { state } = ctx;
   const plan = computeFinalPlan({
     slots: monthSlots(state.month_start, SLOTS),
@@ -91,7 +116,7 @@ export function renderFinalPlan(ctx) {
     body = [
       plan.tie && h('p', { class: 'tie-note' },
         `🤝 Hay empate entre ${plan.candidates.length} opciones en las que pueden ${plan.maxAttendees} personas. ¡Elegid una!`),
-      plan.candidates.map((c) => candidateBlock(c, ctx)),
+      plan.candidates.map((c) => candidateBlock(c, ctx, planEvent)),
       plan.status === 'waiting-ratings' && participation(ctx),
     ];
   }

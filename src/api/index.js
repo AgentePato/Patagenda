@@ -5,10 +5,13 @@
 //   setAvailability(profileId, date, slot, available)
 //   rateActivity(profileId, activityId, score | null)
 //   addOption(kind, name) · renameOption(kind, id, name) · deleteOption(kind, id)
+//   addPlace({ place_id, name, address, lat, lng, maps_url })
+//   setDinner(profileId, date, time, restaurantId) · setPlanEvent(profileId, date, slot, activityId)
+//   deleteEvent(id) · setAttendance(profileId, eventId, going | null)
 //   subscribe(onChange, onStatus) → unsubscribe
 
-export async function createBackend({ supabaseUrl, supabaseAnonKey }) {
-  if (supabaseUrl && supabaseAnonKey) {
+export async function createBackend({ supabaseUrl, supabaseAnonKey }, { demo = false } = {}) {
+  if (supabaseUrl && supabaseAnonKey && !demo) {
     const { createSupabaseBackend } = await import('./supabaseBackend.js');
     return createSupabaseBackend(supabaseUrl, supabaseAnonKey);
   }

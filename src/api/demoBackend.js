@@ -1,15 +1,14 @@
 // Backend de demostración: guarda los datos en localStorage y sincroniza las
-// pestañas del mismo navegador. Sirve para probar la web sin Supabase; NO
-// comparte datos entre móviles.
+// pestañas del mismo navegador. Sirve para probar la web sin tocar los datos
+// reales (añade ?demo a la URL); NO comparte datos entre móviles.
 
-import { DEFAULT_ACTIVITIES, DEFAULT_PROFILES, DEFAULT_RESTAURANTS, NAME_MAX_LENGTH } from '../constants.js';
-import { madridToday, monthStartOf, weekStartOf } from '../logic/dates.js';
+import { DEFAULT_ACTIVITIES, DEFAULT_PROFILES, NAME_MAX_LENGTH } from '../constants.js';
+import { addDays, madridToday, monthStartOf, weekStartOf, weekday } from '../logic/dates.js';
 
-const STORAGE_KEY = 'patagenda-demo-v1';
+const STORAGE_KEY = 'patagenda-demo-v2';
 const TABLES = { restaurant: 'restaurants', activity: 'activities' };
 
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
-const option = (name) => ({ id: uid(), name });
 
 function load() {
   try {
@@ -17,12 +16,13 @@ function load() {
     if (raw) return JSON.parse(raw);
   } catch { /* datos corruptos o almacenamiento bloqueado: empezamos de cero */ }
   return {
-    restaurants: DEFAULT_RESTAURANTS.map(option),
-    activities: DEFAULT_ACTIVITIES.map(option),
+    restaurants: [],
+    activities: DEFAULT_ACTIVITIES.map((name) => ({ id: uid(), name })),
     dinner_day_votes: [],
     restaurant_votes: [],
     availability: [],
     activity_ratings: [],
+    events: [],
   };
 }
 
@@ -45,16 +45,25 @@ export function createDemoBackend() {
 
   function commit(change) {
     db = load();
-    change(db);
+    const result = change(db);
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(db)); } catch { /* sin almacenamiento */ }
     channel?.postMessage('changed');
     setTimeout(() => listeners.forEach((l) => l()), 0);
+    return result;
   }
 
   channel?.addEventListener('message', () => { db = load(); listeners.forEach((l) => l()); });
 
   // Un voto por persona y periodo: quita el anterior y, si hay valor, añade el nuevo.
   const upsert = (rows, match, row) => [...rows.filter((r) => !match(r)), ...(row ? [row] : [])];
+
+  // Crea o sustituye la quedada de ese tipo y periodo, conservando las respuestas.
+  function saveEvent(d, kind, period, fields) {
+    const existing = d.events.find((e) => e.kind === kind && e.period_start === period);
+    const event = { id: existing?.id ?? uid(), kind, period_start: period, attendance: existing?.attendance ?? [], ...fields };
+    d.events = [...d.events.filter((e) => e !== existing), event];
+    return event.id;
+  }
 
   return {
     mode: 'demo',
@@ -74,6 +83,7 @@ export function createDemoBackend() {
         restaurant_votes: strip(db.restaurant_votes.filter((v) => v.period === week)),
         availability: strip(db.availability.filter((v) => v.period === month)),
         activity_ratings: strip(db.activity_ratings.filter((v) => v.period === month)),
+        events: [...db.events].sort((a, b) => (a.event_date < b.event_date ? 1 : -1)),
       };
     },
 
@@ -117,7 +127,7 @@ export function createDemoBackend() {
       commit((d) => {
         const rows = d[TABLES[kind]];
         if (rows.some((r) => r.name.toLowerCase() === clean.toLowerCase())) throw new Error('Ya existe una opción con ese nombre');
-        rows.push(option(clean));
+        rows.push({ id: uid(), name: clean });
       });
     },
 
@@ -137,6 +147,54 @@ export function createDemoBackend() {
         d[TABLES[kind]] = d[TABLES[kind]].filter((r) => r.id !== id);
         if (kind === 'restaurant') d.restaurant_votes = d.restaurant_votes.filter((v) => v.restaurant_id !== id);
         else d.activity_ratings = d.activity_ratings.filter((v) => v.activity_id !== id);
+      });
+    },
+
+    async addPlace(place) {
+      return commit((d) => {
+        if (d.restaurants.some((r) => r.place_id === place.place_id)) throw new Error('Ese sitio ya está en la lista');
+        const row = { id: uid(), ...place };
+        d.restaurants.push(row);
+        return row.id;
+      });
+    },
+
+    async setDinner(profileId, date, time, restaurantId) {
+      const { week } = periods();
+      if (date < week || date > addDays(week, 6)) throw new Error('La fecha tiene que ser de esta semana');
+      if (!/^\d{1,2}:\d{2}$/.test(time ?? '')) throw new Error('Hora no válida');
+      return commit((d) => {
+        const r = d.restaurants.find((x) => x.id === restaurantId);
+        if (!r) throw new Error('Elige un sitio de la lista');
+        return saveEvent(d, 'dinner', week, {
+          event_date: date, event_time: time, title: r.name, restaurant_id: r.id,
+          place_address: r.address, lat: r.lat, lng: r.lng, maps_url: r.maps_url, created_by: profileId,
+        });
+      });
+    },
+
+    async setPlanEvent(profileId, date, slot, activityId) {
+      const { month } = periods();
+      if (monthStartOf(date) !== month || ![5, 6, 0].includes(weekday(date))) {
+        throw new Error('La fecha tiene que ser un fin de semana de este mes');
+      }
+      return commit((d) => {
+        const a = d.activities.find((x) => x.id === activityId);
+        if (!a) throw new Error('Ese plan ya no existe');
+        return saveEvent(d, 'plan', month, { event_date: date, slot, title: a.name, created_by: profileId });
+      });
+    },
+
+    async deleteEvent(id) {
+      commit((d) => { d.events = d.events.filter((e) => e.id !== id); });
+    },
+
+    async setAttendance(profileId, eventId, going) {
+      commit((d) => {
+        const event = d.events.find((e) => e.id === eventId);
+        if (!event) throw new Error('Esa quedada ya no existe');
+        event.attendance = upsert(event.attendance, (a) => a.profile_id === profileId,
+          going != null && { profile_id: profileId, going });
       });
     },
 

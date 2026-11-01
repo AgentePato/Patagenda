@@ -1,19 +1,25 @@
 import { config } from './config.js';
 import { createBackend } from './api/index.js';
+import { createPlaceSearch } from './api/places.js';
 import { createStore } from './store.js';
 import { session } from './session.js';
 import { madridToday, monthStartOf, weekStartOf } from './logic/dates.js';
 import { h, cx, replaceContent } from './ui/dom.js';
 import { avatar } from './ui/components.js';
+import { renderHomeView } from './views/homeView.js';
 import { renderDinnerView } from './views/dinnerView.js';
 import { renderMonthView } from './views/monthView.js';
+import { renderHistoryView } from './views/historyView.js';
 
 const root = document.getElementById('app');
 
-const TABS = [
-  { id: 'cena', label: 'Cena del finde', emoji: '🍝', render: renderDinnerView },
-  { id: 'plan', label: 'Plan del mes', emoji: '✨', render: renderMonthView },
-];
+// Cada sección es una página aparte: #/, #/cena, #/plan, #/historico
+const ROUTES = {
+  '': renderHomeView,
+  cena: renderDinnerView,
+  plan: renderMonthView,
+  historico: renderHistoryView,
+};
 
 const LIVE_LABELS = {
   live: 'En directo',
@@ -26,14 +32,20 @@ const LIVE_LABELS = {
 const ui = {
   editing: { restaurant: false, activity: false },
   openDetails: new Set(),
+  historyYear: null,
   live: 'connecting',
-  lastTab: null,
+  lastRoute: null,
 };
 
+const isDemo = new URLSearchParams(location.search).has('demo');
+const placeSearch = createPlaceSearch(config);
 let store;
 let backend;
 
-const currentTab = () => TABS.find((t) => t.id === location.hash.slice(1)) ?? TABS[0];
+function currentRoute() {
+  const name = location.hash.replace(/^#\/?/, '');
+  return name in ROUTES ? name : '';
+}
 
 // ---------------------------------------------------------------- pantallas
 function renderLoading() {
@@ -43,12 +55,12 @@ function renderLoading() {
 }
 
 function renderError(error) {
-  const notConfigured = /get_state|function|schema/i.test(error.message);
+  const notConfigured = /get_state|function|schema|column/i.test(error.message);
   replaceContent(root, h('div', { class: 'screen-center' },
     h('div', { class: 'loader loader--still', 'aria-hidden': 'true' }, '😿'),
     h('h2', {}, 'No hemos podido cargar los datos'),
     h('p', { class: 'muted' }, error.message),
-    notConfigured && h('p', { class: 'muted' }, '¿Has ejecutado supabase/schema.sql en tu proyecto de Supabase?'),
+    notConfigured && h('p', { class: 'muted' }, '¿Has ejecutado la última versión de supabase/schema.sql en Supabase?'),
     h('button', { type: 'button', class: 'btn btn--primary', onClick: start }, 'Reintentar')));
 }
 
@@ -61,14 +73,14 @@ function renderPicker(state) {
       type: 'button',
       class: 'profile-card',
       style: { '--c': p.color },
-      onClick: () => { session.set(p.id); render(); window.scrollTo(0, 0); },
-    }, avatar(p, { size: 'xl' }), h('span', { class: 'profile-card__name' }, p.name)))),
+      onClick: () => { session.set(p.id); location.hash = '#/'; render(); window.scrollTo(0, 0); },
+    }, avatar(p, { size: 'lg' }), h('span', { class: 'profile-card__name' }, p.name)))),
     h('p', { class: 'picker__note' }, 'Tus votos se guardan con tu nombre. Puedes cambiar de perfil cuando quieras.')));
 }
 
 function topbar(me) {
   return h('header', { class: 'topbar' },
-    h('div', { class: 'topbar__brand' }, h('span', { 'aria-hidden': 'true' }, '🦆'), 'Patagenda'),
+    h('a', { class: 'topbar__brand', href: '#/' }, h('span', { 'aria-hidden': 'true' }, '🦆'), 'Patagenda'),
     h('span', { class: cx('live', `live--${ui.live}`), title: LIVE_LABELS[ui.live] },
       h('span', { class: 'live__dot', 'aria-hidden': 'true' }), LIVE_LABELS[ui.live]),
     h('button', {
@@ -79,14 +91,6 @@ function topbar(me) {
     }, avatar(me), h('span', { class: 'me-chip__text' }, h('strong', {}, me.name), h('small', {}, 'Cambiar'))));
 }
 
-function tabsNav(active) {
-  return h('nav', { class: 'tabs', 'aria-label': 'Secciones' }, TABS.map((t) => h('a', {
-    href: `#${t.id}`,
-    class: cx('tab', t.id === active.id && 'is-active'),
-    'aria-current': t.id === active.id ? 'page' : null,
-  }, h('span', { 'aria-hidden': 'true' }, t.emoji), t.label)));
-}
-
 function render() {
   const state = store?.state;
   if (!state) return;
@@ -95,18 +99,17 @@ function render() {
   if (!me) { renderPicker(state); return; }
 
   const profilesById = Object.fromEntries(state.profiles.map((p) => [p.id, p]));
-  const ctx = { state, me, store, ui, profilesById, rerender: render };
-  const tab = currentTab();
-  const entering = ui.lastTab !== tab.id;
-  ui.lastTab = tab.id;
+  const ctx = { state, me, store, ui, profilesById, placeSearch, rerender: render };
+  const route = currentRoute();
+  const entering = ui.lastRoute !== route;
+  ui.lastRoute = route;
 
   replaceContent(root,
     topbar(me),
     backend.mode === 'demo' && h('p', { class: 'demo-banner' },
-      'Modo demo: los votos solo se guardan en este navegador. Configura Supabase (ver README) para compartirlos.'),
-    tabsNav(tab),
-    h('main', { class: cx('main', entering && 'main--enter') }, tab.render(ctx)),
-    h('footer', { class: 'footer' }, 'Hecho con 💖 para Raquel, Marta y Diana'));
+      'Modo demo: los votos solo se guardan en este navegador y no afectan a los datos reales.'),
+    h('main', { class: cx('main', entering && 'main--enter') }, ROUTES[route](ctx)),
+    h('footer', { class: 'footer' }, 'Hecho con 💖 para el grupo'));
 }
 
 // ---------------------------------------------------------------- arranque
@@ -116,7 +119,7 @@ let started = false;
 async function start() {
   renderLoading();
   try {
-    backend ??= await createBackend(config);
+    backend ??= await createBackend(config, { demo: isDemo });
     store ??= createStore(backend);
     await store.refresh();
   } catch (error) {
@@ -138,7 +141,12 @@ async function start() {
     },
   );
 
-  window.addEventListener('hashchange', () => { render(); window.scrollTo({ top: 0 }); });
+  window.addEventListener('hashchange', () => {
+    // El enlace "Ver plan definitivo" usa un ancla dentro de la página, no es una ruta.
+    if (location.hash === '#plan-definitivo') return;
+    render();
+    window.scrollTo({ top: 0 });
+  });
   document.addEventListener('visibilitychange', () => { if (!document.hidden) store.scheduleRefresh(0); });
   window.addEventListener('online', () => store.scheduleRefresh(0));
   window.addEventListener('pagehide', () => unsubscribe?.());

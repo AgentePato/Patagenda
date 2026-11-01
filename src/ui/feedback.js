@@ -23,7 +23,7 @@ export async function attempt(action) {
 }
 
 // ---------------------------------------------------------------- modales
-function openModal({ title, body, actions, onClose }) {
+export function openModal({ title, body, actions, onClose }) {
   const previousFocus = document.activeElement;
   const panel = h('div', { class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': title },
     h('h3', { class: 'modal__title' }, title),

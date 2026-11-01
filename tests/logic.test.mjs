@@ -11,6 +11,7 @@ import {
   tallyChoices, availabilityStats, bestSlots, activityScores, topActivities,
   computeFinalPlan, formatScore,
 } from '../src/logic/polls.js';
+import { attendanceSummary, dinnerDateFor, eventFor, historyStats, historyYears, myAnswer } from '../src/logic/events.js';
 
 const log = typeof console !== 'undefined' ? (...a) => console.log(...a) : print;
 let passed = 0;
@@ -206,6 +207,57 @@ test('sin votos suficientes: todavía se está decidiendo', () => {
   const noRatings = computeFinalPlan({ ...base, ratings: [], availability: EXAMPLE_AVAILABILITY });
   eq(noRatings.status, 'waiting-ratings');
   eq(noRatings.candidates[0].slot.key, '2026-11-07|noche');
+});
+
+// ---------------------------------------------------------------- quedadas e histórico
+log('Quedadas e histórico');
+
+const PROFILES = [{ id: 'aroa' }, { id: 'raquel' }, { id: 'marta' }];
+const go = (profile_id, going = true) => ({ profile_id, going });
+const EVENTS = [
+  { id: 1, kind: 'dinner', period_start: '2026-10-26', event_date: '2026-10-31', title: 'Sushi Bar', restaurant_id: 'r1', lat: 1, lng: 2,
+    attendance: [go('aroa'), go('raquel'), go('marta', false)] },
+  { id: 2, kind: 'dinner', period_start: '2026-10-19', event_date: '2026-10-23', title: 'Sushi Bar', restaurant_id: 'r1', lat: 1, lng: 2,
+    attendance: [go('raquel')] },
+  { id: 3, kind: 'dinner', period_start: '2026-10-12', event_date: '2026-10-17', title: 'Pizzería', restaurant_id: 'r2', lat: 3, lng: 4,
+    attendance: [go('raquel'), go('marta')] },
+  { id: 4, kind: 'plan', period_start: '2026-10-01', event_date: '2026-10-10', slot: 'tarde', title: 'Ir a patinar',
+    attendance: [go('aroa'), go('marta')] },
+  { id: 5, kind: 'dinner', period_start: '2026-11-02', event_date: '2026-11-06', title: 'Futuro', restaurant_id: 'r3', attendance: [go('aroa')] },
+  { id: 6, kind: 'dinner', period_start: '2025-12-15', event_date: '2025-12-19', title: 'Pizzería', restaurant_id: 'r2', attendance: [go('aroa')] },
+];
+
+test('cena de la semana y fecha según el día votado', () => {
+  eq(eventFor(EVENTS, 'dinner', '2026-10-26').id, 1);
+  eq(eventFor(EVENTS, 'plan', '2026-11-01'), null);
+  eq(dinnerDateFor('2026-11-02', 'viernes'), '2026-11-06');
+  eq(dinnerDateFor('2026-11-02', 'sabado'), '2026-11-07');
+});
+
+test('resumen de asistencia', () => {
+  eq(attendanceSummary(EVENTS[0], PROFILES), { going: ['aroa', 'raquel'], notGoing: ['marta'], pending: [] });
+  eq(attendanceSummary(null, PROFILES).pending, ['aroa', 'raquel', 'marta']);
+  eq([myAnswer(EVENTS[0], 'marta'), myAnswer(EVENTS[0], 'pepe')], [false, null]);
+});
+
+test('histórico: solo quedadas pasadas del año elegido', () => {
+  const s = historyStats(EVENTS, PROFILES, { year: 2026, today: '2026-11-01' });
+  eq([s.total, s.dinners, s.plans], [4, 3, 1]);
+  eq(s.events.map((e) => e.id), [1, 2, 3, 4]);
+  eq(historyYears(EVENTS, '2026-11-01'), [2026, 2025]);
+});
+
+test('histórico: quién va más (decir "no voy" no cuenta)', () => {
+  const s = historyStats(EVENTS, PROFILES, { year: 2026, today: '2026-11-01' });
+  eq(s.people.map((p) => [p.profile_id, p.count, p.pct]), [['raquel', 3, 75], ['aroa', 2, 50], ['marta', 2, 50]]);
+  eq(s.people.find((p) => p.profile_id === 'marta'), { profile_id: 'marta', count: 2, dinners: 1, plans: 1, pct: 50 });
+});
+
+test('histórico: sitios más repetidos y día favorito', () => {
+  const s = historyStats(EVENTS, PROFILES, { year: 2026, today: '2026-11-01' });
+  eq(s.places.map((p) => [p.name, p.count]), [['Sushi Bar', 2], ['Pizzería', 1]]);
+  eq(s.weekdays[0], { day: 6, count: 3 }); // sábados: 31 oct, 17 oct, 10 oct
+  eq(Math.round(s.averageGroup * 100) / 100, 1.75);
 });
 
 log(`\n${passed} tests correctos, ${failures.length} fallidos`);

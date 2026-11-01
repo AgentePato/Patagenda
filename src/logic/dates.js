@@ -75,6 +75,12 @@ const capitalize = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 /** "Viernes" */
 export const weekdayName = (iso) => capitalize(WEEKDAYS[weekday(iso)]);
 
+/** 5 → "Viernes" */
+export const weekdayNameOf = (n) => capitalize(WEEKDAYS[n]);
+
+/** "Noviembre" */
+export const monthName = (iso) => capitalize(MONTHS[Number(iso.slice(5, 7)) - 1]);
+
 /** "Vie" */
 export const weekdayShort = (iso) => WEEKDAYS_SHORT[weekday(iso)];
 

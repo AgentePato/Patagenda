@@ -60,10 +60,10 @@ function openDelete(kind, option, { store }) {
 }
 
 /** Botones ✏️ / 🗑 que aparecen en modo edición. */
-export function optionTools(kind, option, ctx) {
+export function optionTools(kind, option, ctx, { rename = true } = {}) {
   const stop = (fn) => (e) => { e.stopPropagation(); fn(); };
   return h('span', { class: 'option-tools' },
-    iconButton('Editar nombre', '✏️', stop(() => openRename(kind, option, ctx))),
+    rename && iconButton('Editar nombre', '✏️', stop(() => openRename(kind, option, ctx))),
     iconButton('Borrar', '🗑', stop(() => openDelete(kind, option, ctx)), 'icon-btn--danger'));
 }
 

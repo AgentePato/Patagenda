@@ -7,12 +7,17 @@ export function avatar(profile, { size = 'sm', badge = null } = {}) {
     style: { '--c': profile.color },
     title: profile.name,
     'aria-label': profile.name,
-  }, profile.name.charAt(0), badge != null && h('span', { class: 'avatar__badge' }, badge));
+  }, profile.emoji || profile.name.charAt(0), badge != null && h('span', { class: 'avatar__badge' }, badge));
 }
 
-export function avatarStack(profileIds, profilesById, opts) {
+/** Avatares superpuestos; a partir de `max` se resume en "+N". */
+export function avatarStack(profileIds, profilesById, { max = 5, ...opts } = {}) {
   if (!profileIds.length) return null;
-  return h('span', { class: 'avatar-stack' }, profileIds.map((id) => avatar(profilesById[id], opts)));
+  const shown = profileIds.length > max ? profileIds.slice(0, max - 1) : profileIds;
+  const rest = profileIds.length - shown.length;
+  return h('span', { class: 'avatar-stack', title: namesList(profileIds, profilesById) },
+    shown.map((id) => avatar(profilesById[id], opts)),
+    rest > 0 && h('span', { class: cx('avatar', 'avatar--more', `avatar--${opts.size ?? 'sm'}`) }, `+${rest}`));
 }
 
 /** "Raquel, Marta y Diana" */

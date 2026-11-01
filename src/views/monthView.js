@@ -8,6 +8,9 @@ import { avatar, avatarStack, card, namesList, pill, plural } from '../ui/compon
 import { attempt } from '../ui/feedback.js';
 import { editToggle, openAddOption, optionTools } from './optionEditor.js';
 import { renderFinalPlan } from './finalPlan.js';
+import { eventCard } from './eventCard.js';
+import { pageIntro } from './pageIntro.js';
+import { eventFor } from '../logic/events.js';
 
 const slotMeta = (id) => SLOTS.find((s) => s.id === id);
 const slotLabel = (stat) => `${formatDayName(stat.date)} · ${slotMeta(stat.slot).label}`;
@@ -39,7 +42,7 @@ function slotButton(stat, ctx, profileCount, isBest) {
   },
   isBest && h('span', { class: 'slot__star', 'aria-hidden': 'true' }, '⭐'),
   h('span', { class: 'slot__label' }, h('span', { 'aria-hidden': 'true' }, meta.emoji), meta.label),
-  h('span', { class: 'slot__people' }, avatarStack(stat.people, profilesById, { size: 'xs' }) ?? h('span', { class: 'slot__nobody' }, '·')),
+  h('span', { class: 'slot__people' }, avatarStack(stat.people, profilesById, { size: 'xs', max: 3 }) ?? h('span', { class: 'slot__nobody' }, '·')),
   h('span', { class: 'slot__count' }, `${stat.count}/${profileCount} · ${stat.pct}%`));
 }
 
@@ -129,16 +132,16 @@ function activitiesCard(ctx) {
 
 // ---------------------------------------------------------------- vista
 export function renderMonthView(ctx) {
+  const { state } = ctx;
+  const planEvent = eventFor(state.events, 'plan', state.month_start);
   return h('div', { class: 'view' },
-    h('div', { class: 'view__intro' },
-      h('h2', { class: 'view__title' }, 'Plan del mes'),
-      h('p', { class: 'view__subtitle' },
-        `${formatMonth(ctx.state.month_start)} · se reinicia el día 1 a las 00:00`),
-      h('a', { class: 'jump-link', href: '#plan-definitivo', onClick: (e) => {
+    pageIntro('✨ Plan mensual', `${formatMonth(state.month_start)} · se reinicia el día 1 a las 00:00`,
+      !planEvent && h('a', { class: 'jump-link', href: '#plan-definitivo', onClick: (e) => {
         e.preventDefault();
         document.getElementById('plan-definitivo')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       } }, '✨ Ver nuestro plan definitivo')),
+    planEvent && eventCard(planEvent, ctx, { title: 'Plan de este mes', canDelete: true }),
     availabilityCard(ctx),
     activitiesCard(ctx),
-    renderFinalPlan(ctx));
+    renderFinalPlan(ctx, planEvent));
 }
